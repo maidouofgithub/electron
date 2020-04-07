@@ -1,45 +1,44 @@
-import { shell, Menu } from 'electron'
+import { shell, Menu } from 'electron';
 
-const v8Util = process.atomBinding('v8_util')
+const v8Util = process.electronBinding('v8_util');
 
-const isMac = process.platform === 'darwin'
+const isMac = process.platform === 'darwin';
 
 export const setDefaultApplicationMenu = () => {
-  if (v8Util.getHiddenValue<boolean>(global, 'applicationMenuSet')) return
+  if (v8Util.getHiddenValue<boolean>(global, 'applicationMenuSet')) return;
 
   const helpMenu: Electron.MenuItemConstructorOptions = {
     role: 'help',
     submenu: [
       {
         label: 'Learn More',
-        click () {
-          shell.openExternalSync('https://electronjs.org')
+        click: async () => {
+          await shell.openExternal('https://electronjs.org');
         }
       },
       {
         label: 'Documentation',
-        click () {
-          shell.openExternalSync(
-            `https://github.com/electron/electron/tree/v${process.versions.electron}/docs#readme`
-          )
+        click: async () => {
+          const version = process.versions.electron;
+          await shell.openExternal(`https://github.com/electron/electron/tree/v${version}/docs#readme`);
         }
       },
       {
         label: 'Community Discussions',
-        click () {
-          shell.openExternalSync('https://discuss.atom.io/c/electron')
+        click: async () => {
+          await shell.openExternal('https://discuss.atom.io/c/electron');
         }
       },
       {
         label: 'Search Issues',
-        click () {
-          shell.openExternalSync('https://github.com/electron/electron/issues')
+        click: async () => {
+          await shell.openExternal('https://github.com/electron/electron/issues');
         }
       }
     ]
-  }
+  };
 
-  const macAppMenu: Electron.MenuItemConstructorOptions = { role: 'appMenu' }
+  const macAppMenu: Electron.MenuItemConstructorOptions = { role: 'appMenu' };
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [macAppMenu] : []),
     { role: 'fileMenu' },
@@ -47,8 +46,8 @@ export const setDefaultApplicationMenu = () => {
     { role: 'viewMenu' },
     { role: 'windowMenu' },
     helpMenu
-  ]
+  ];
 
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
-}
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+};

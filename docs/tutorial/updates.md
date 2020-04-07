@@ -8,7 +8,7 @@ Electron's [autoUpdater](../api/auto-updater.md) module.
 ## Using `update.electronjs.org`
 
 GitHub's Electron team maintains [update.electronjs.org], a free and open-source
-webservice that Electron apps can use to self-update. The service is designed 
+webservice that Electron apps can use to self-update. The service is designed
 for Electron apps that meet the following criteria:
 
 - App runs on macOS or Windows
@@ -31,27 +31,19 @@ Invoke the updater from your app's main process file:
 require('update-electron-app')()
 ```
 
-By default, this module will check for updates at app startup, then every ten 
-minutes. When an update is found, it will automatically be downloaded in the background. When the download completes, a dialog is displayed allowing the user 
+By default, this module will check for updates at app startup, then every ten
+minutes. When an update is found, it will automatically be downloaded in the background. When the download completes, a dialog is displayed allowing the user
 to restart the app.
 
-If you need to customize your configuration, you can 
+If you need to customize your configuration, you can
 [pass options to `update-electron-app`][update-electron-app]
-or 
+or
 [use the update service directly][update.electronjs.org].
-
-## Using `electron-builder`
-
-If your app is packaged with [`electron-builder`][electron-builder-lib] you can use the
-[electron-updater] module, which does not require a server and allows for updates
-from S3, GitHub or any other static file host. This sidesteps Electron's built-in
-update mechanism, meaning that the rest of this documentation will not apply to
-`electron-builder`'s updater.
 
 ## Deploying an Update Server
 
 If you're developing a private Electron application, or if you're not
-publishing releases to GitHub Releases, it may be necessary to run your own 
+publishing releases to GitHub Releases, it may be necessary to run your own
 update server.
 
 Depending on your needs, you can choose from one of these:
@@ -123,8 +115,8 @@ autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
     detail: 'A new version has been downloaded. Restart the application to apply the updates.'
   }
 
-  dialog.showMessageBox(dialogOpts, (response) => {
-    if (response === 0) autoUpdater.quitAndInstall()
+  dialog.showMessageBox(dialogOpts).then((returnValue) => {
+    if (returnValue.response === 0) autoUpdater.quitAndInstall()
   })
 })
 ```
@@ -140,8 +132,6 @@ autoUpdater.on('error', message => {
 })
 ```
 
-[electron-builder-lib]: https://github.com/electron-userland/electron-builder
-[electron-updater]: https://www.electron.build/auto-update
 [now]: https://zeit.co/now
 [hazel]: https://github.com/zeit/hazel
 [nuts]: https://github.com/GitbookIO/nuts

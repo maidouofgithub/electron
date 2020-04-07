@@ -1,38 +1,65 @@
+declare var internalBinding: any;
+
 declare namespace NodeJS {
   interface FeaturesBinding {
+    isBuiltinSpellCheckerEnabled(): boolean;
     isDesktopCapturerEnabled(): boolean;
     isOffscreenRenderingEnabled(): boolean;
+    isRemoteModuleEnabled(): boolean;
     isPDFViewerEnabled(): boolean;
     isRunAsNodeEnabled(): boolean;
     isFakeLocationProviderEnabled(): boolean;
     isViewApiEnabled(): boolean;
     isTtsEnabled(): boolean;
     isPrintingEnabled(): boolean;
+    isPictureInPictureEnabled(): boolean;
+    isExtensionsEnabled(): boolean;
+    isComponentBuild(): boolean;
+  }
+
+  interface IpcRendererBinding {
+    send(internal: boolean, channel: string, args: any[]): void;
+    sendSync(internal: boolean, channel: string, args: any[]): any;
+    sendToHost(channel: string, args: any[]): void;
+    sendTo(internal: boolean, sendToAll: boolean, webContentsId: number, channel: string, args: any[]): void;
+    invoke<T>(internal: boolean, channel: string, args: any[]): Promise<{ error: string, result: T }>;
+    postMessage(channel: string, message: any, transferables: MessagePort[]): void;
   }
 
   interface V8UtilBinding {
     getHiddenValue<T>(obj: any, key: string): T;
     setHiddenValue<T>(obj: any, key: string, value: T): void;
+    deleteHiddenValue(obj: any, key: string): void;
+    requestGarbageCollectionForTesting(): void;
+    createIDWeakMap<V>(): ElectronInternal.KeyWeakMap<number, V>;
+    createDoubleIDWeakMap<V>(): ElectronInternal.KeyWeakMap<[string, number], V>;
+    setRemoteCallbackFreer(fn: Function, frameId: number, contextId: String, id: number, sender: any): void
   }
+
   interface Process {
     /**
-     * DO NOT USE DIRECTLY, USE process.atomBinding
+     * DO NOT USE DIRECTLY, USE process.electronBinding
      */
     _linkedBinding(name: string): any;
-    atomBinding(name: string): any;
-    atomBinding(name: 'features'): FeaturesBinding;
-    atomBinding(name: 'v8_util'): V8UtilBinding;
-    atomBinding(name: 'app'): { app: Electron.App, App: Function };
-    atomBinding(name: 'command_line'): Electron.CommandLine;
+    electronBinding(name: string): any;
+    electronBinding(name: 'features'): FeaturesBinding;
+    electronBinding(name: 'ipc'): { ipc: IpcRendererBinding };
+    electronBinding(name: 'v8_util'): V8UtilBinding;
+    electronBinding(name: 'app'): { app: Electron.App, App: Function };
+    electronBinding(name: 'command_line'): Electron.CommandLine;
+    electronBinding(name: 'desktop_capturer'): { createDesktopCapturer(): ElectronInternal.DesktopCapturer };
     log: NodeJS.WriteStream['write'];
     activateUvLoop(): void;
-
-    // Additional methods
-    getRenderProcessPreferences(): Array<Electron.RendererProcessPreference> | null;
 
     // Additional events
     once(event: 'document-start', listener: () => any): this;
     once(event: 'document-end', listener: () => any): this;
+
+    // Additional properties
+    _firstFileName?: string;
+
+    helperExecPath: string;
+    isRemoteModuleEnabled: boolean;
   }
 }
 
@@ -45,11 +72,20 @@ declare module NodeJS  {
   }
 }
 
+interface ContextMenuItem {
+  id: number;
+  label: string;
+  type: 'normal' | 'separator' | 'subMenu' | 'checkbox';
+  checked: boolean;
+  enabled: boolean;
+  subItems: ContextMenuItem[];
+}
+
 declare interface Window {
   ELECTRON_DISABLE_SECURITY_WARNINGS?: boolean;
   ELECTRON_ENABLE_SECURITY_WARNINGS?: boolean;
   InspectorFrontendHost?: {
-    showContextMenuAtPoint: (x: number, y: number, items: any[]) => void
+    showContextMenuAtPoint: (x: number, y: number, items: ContextMenuItem[]) => void
   };
   DevToolsAPI?: {
     contextMenuItemSelected: (id: number) => void;

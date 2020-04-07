@@ -11,7 +11,7 @@ An example of implementing a protocol that has the same effect as the
 const { app, protocol } = require('electron')
 const path = require('path')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   protocol.registerFileProtocol('atom', (request, callback) => {
     const url = request.url.substr(7)
     callback({ path: path.normalize(`${__dirname}/${url}`) })
@@ -23,6 +23,37 @@ app.on('ready', () => {
 
 **Note:** All methods unless specified can only be used after the `ready` event
 of the `app` module gets emitted.
+
+## Using `protocol` with a custom `partition` or `session`
+
+A protocol is registered to a specific Electron [`session`](./session.md) object. If you don't specify a session, then your `protocol` will be applied to the default session that Electron uses. However, if you define a `partition` or `session` on your `browserWindow`'s `webPreferences`, then that window will use a different session and your custom protocol will not work if you just use `electron.protocol.XXX`.
+
+To have your custom protocol work in combination with a custom session, you need to register it to that session explicitly.
+
+```javascript
+const { session, app, protocol } = require('electron')
+const path = require('path')
+
+app.whenReady().then(() => {
+  const partition = 'persist:example'
+  const ses = session.fromPartition(partition)
+
+  ses.protocol.registerFileProtocol('atom', (request, callback) => {
+    const url = request.url.substr(7)
+    callback({ path: path.normalize(`${__dirname}/${url}`) })
+  }, (error) => {
+    if (error) console.error('Failed to register protocol')
+  })
+
+  mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      partition: partition
+    }
+  })
+})
+```
 
 ## Methods
 
@@ -100,11 +131,12 @@ protocol.registerSchemesAsPrivileged([
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
   * `callback` Function
-    * `filePath` String (optional)
+    * `filePath` String | [FilePathWithHeaders](structures/file-path-with-headers.md) (optional)
 * `completion` Function (optional)
   * `error` Error
 
@@ -117,8 +149,8 @@ going to be created with `scheme`. `completion` will be called with
 To handle the `request`, the `callback` should be called with either the file's
 path or an object that has a `path` property, e.g. `callback(filePath)` or
 `callback({ path: filePath })`. The object may also have a `headers` property
-which gives a list of strings for the response headers, e.g.
-`callback({ path: filePath, headers: ["Content-Security-Policy: default-src 'none'"]})`.
+which gives a map of headers to values for the response headers, e.g.
+`callback({ path: filePath, headers: {"Content-Security-Policy": "default-src 'none'"]})`.
 
 When `callback` is called with nothing, a number, or an object that has an
 `error` property, the `request` will fail with the `error` number you
@@ -126,9 +158,7 @@ specified. For the available error numbers you can use, please see the
 [net error list][net-error].
 
 By default the `scheme` is treated like `http:`, which is parsed differently
-than protocols that follow the "generic URI syntax" like `file:`, so you
-probably want to call `protocol.registerStandardSchemes` to have your scheme
-treated as a standard scheme.
+than protocols that follow the "generic URI syntax" like `file:`.
 
 ### `protocol.registerBufferProtocol(scheme, handler[, completion])`
 
@@ -136,6 +166,7 @@ treated as a standard scheme.
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
@@ -168,11 +199,12 @@ protocol.registerBufferProtocol('atom', (request, callback) => {
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
   * `callback` Function
-    * `data` String (optional)
+    * `data` (String | [StringProtocolResponse](structures/string-protocol-response.md)) (optional)
 * `completion` Function (optional)
   * `error` Error
 
@@ -188,18 +220,16 @@ should be called with either a `String` or an object that has the `data`,
 * `handler` Function
   * `request` Object
     * `url` String
-    * `headers` Object
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
   * `callback` Function
     * `redirectRequest` Object
       * `url` String
-      * `method` String
-      * `session` Object (optional)
-      * `uploadData` Object (optional)
-        * `contentType` String - MIME type of the content.
-        * `data` String - Content to be sent.
+      * `method` String (optional)
+      * `session` Session | null (optional)
+      * `uploadData` [ProtocolResponseUploadData](structures/protocol-response-upload-data.md) (optional)
 * `completion` Function (optional)
   * `error` Error
 
@@ -220,7 +250,7 @@ For POST requests the `uploadData` object must be provided.
 * `handler` Function
   * `request` Object
     * `url` String
-    * `headers` Object
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
@@ -283,17 +313,6 @@ protocol.registerStreamProtocol('atom', (request, callback) => {
 
 Unregisters the custom protocol of `scheme`.
 
-### `protocol.isProtocolHandled(scheme, callback)`
-
-* `scheme` String
-* `callback` Function
-  * `handled` Boolean
-
-The `callback` will be called with a boolean that indicates whether there is
-already a handler for `scheme`.
-
-**[Deprecated Soon](promisification.md)**
-
 ### `protocol.isProtocolHandled(scheme)`
 
 * `scheme` String
@@ -307,6 +326,7 @@ already a handler for `scheme`.
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
@@ -324,11 +344,12 @@ which sends a file as a response.
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
   * `callback` Function
-    * `data` String (optional)
+    * `data` (String | [StringProtocolResponse](structures/string-protocol-response.md)) (optional)
 * `completion` Function (optional)
   * `error` Error
 
@@ -341,6 +362,7 @@ which sends a `String` as a response.
 * `handler` Function
   * `request` Object
     * `url` String
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
@@ -358,18 +380,16 @@ which sends a `Buffer` as a response.
 * `handler` Function
   * `request` Object
     * `url` String
-    * `headers` Object
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)
   * `callback` Function
     * `redirectRequest` Object
       * `url` String
-      * `method` String
-      * `session` Object (optional)
-      * `uploadData` Object (optional)
-        * `contentType` String - MIME type of the content.
-        * `data` String - Content to be sent.
+      * `method` String (optional)
+      * `session` Session | null (optional)
+      * `uploadData` [ProtocolResponseUploadData](structures/protocol-response-upload-data.md) (optional)
 * `completion` Function (optional)
   * `error` Error
 
@@ -382,7 +402,7 @@ which sends a new HTTP request as a response.
 * `handler` Function
   * `request` Object
     * `url` String
-    * `headers` Object
+    * `headers` Record<String, String>
     * `referrer` String
     * `method` String
     * `uploadData` [UploadData[]](structures/upload-data.md)

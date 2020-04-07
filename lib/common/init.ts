@@ -1,9 +1,10 @@
-import * as timers from 'timers'
-import * as util from 'util'
+import * as util from 'util';
 
-import { atomBindingSetup } from '@electron/internal/common/atom-binding-setup'
+import { electronBindingSetup } from '@electron/internal/common/electron-binding-setup';
 
-process.atomBinding = atomBindingSetup(process._linkedBinding, process.type)
+const timers = require('timers');
+
+process.electronBinding = electronBindingSetup(process._linkedBinding, process.type);
 
 type AnyFn = (...args: any[]) => any
 
@@ -16,11 +17,11 @@ type AnyFn = (...args: any[]) => any
 const wrapWithActivateUvLoop = function <T extends AnyFn> (func: T): T {
   return wrap(func, function (func) {
     return function (this: any, ...args: any[]) {
-      process.activateUvLoop()
-      return func.apply(this, args)
-    }
-  }) as T
-}
+      process.activateUvLoop();
+      return func.apply(this, args);
+    };
+  }) as T;
+};
 
 /**
  * Casts to any below for func are due to Typescript not supporting symbols
@@ -29,37 +30,41 @@ const wrapWithActivateUvLoop = function <T extends AnyFn> (func: T): T {
  * Refs: https://github.com/Microsoft/TypeScript/issues/1863
  */
 function wrap <T extends AnyFn> (func: T, wrapper: (fn: AnyFn) => T) {
-  const wrapped = wrapper(func)
+  const wrapped = wrapper(func);
   if ((func as any)[util.promisify.custom]) {
-    (wrapped as any)[util.promisify.custom] = wrapper((func as any)[util.promisify.custom])
+    (wrapped as any)[util.promisify.custom] = wrapper((func as any)[util.promisify.custom]);
   }
-  return wrapped
+  return wrapped;
 }
 
-process.nextTick = wrapWithActivateUvLoop(process.nextTick)
+process.nextTick = wrapWithActivateUvLoop(process.nextTick);
 
-global.setImmediate = wrapWithActivateUvLoop(timers.setImmediate)
-global.clearImmediate = timers.clearImmediate
+global.setImmediate = timers.setImmediate = wrapWithActivateUvLoop(timers.setImmediate);
+global.clearImmediate = timers.clearImmediate;
 
+// setTimeout needs to update the polling timeout of the event loop, when
+// called under Chromium's event loop the node's event loop won't get a chance
+// to update the timeout, so we have to force the node's event loop to
+// recalculate the timeout in browser process.
+timers.setTimeout = wrapWithActivateUvLoop(timers.setTimeout);
+timers.setInterval = wrapWithActivateUvLoop(timers.setInterval);
+
+// Only override the global setTimeout/setInterval impls in the browser process
 if (process.type === 'browser') {
-  // setTimeout needs to update the polling timeout of the event loop, when
-  // called under Chromium's event loop the node's event loop won't get a chance
-  // to update the timeout, so we have to force the node's event loop to
-  // recalculate the timeout in browser process.
-  global.setTimeout = wrapWithActivateUvLoop(timers.setTimeout)
-  global.setInterval = wrapWithActivateUvLoop(timers.setInterval)
+  global.setTimeout = timers.setTimeout;
+  global.setInterval = timers.setInterval;
 }
 
 if (process.platform === 'win32') {
   // Always returns EOF for stdin stream.
-  const { Readable } = require('stream')
-  const stdin = new Readable()
-  stdin.push(null)
+  const { Readable } = require('stream');
+  const stdin = new Readable();
+  stdin.push(null);
   Object.defineProperty(process, 'stdin', {
     configurable: false,
     enumerable: true,
     get () {
-      return stdin
+      return stdin;
     }
-  })
+  });
 }

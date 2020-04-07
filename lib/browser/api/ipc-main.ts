@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events'
+import { IpcMainImpl } from '@electron/internal/browser/ipc-main-impl';
 
-const emitter = new EventEmitter()
+const ipcMain = new IpcMainImpl();
 
 // Do not throw exception when channel name is "error".
-emitter.on('error', () => {})
+ipcMain.on('error', () => {});
 
-export default emitter
+export default ipcMain;

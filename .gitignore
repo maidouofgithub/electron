@@ -37,7 +37,7 @@
 /vendor/pyyaml
 node_modules/
 SHASUMS256.txt
-**/yarn.lock
+**/package-lock.json
 compile_commands.json
 .envrc
 
@@ -58,7 +58,11 @@ spec/.hash
 .eslintcache
 
 # Generated native addon files
-/spec/fixtures/native-addon/echo/build/
+/spec-main/fixtures/native-addon/echo/build/
 
 # If someone runs tsc this is where stuff will end up
 ts-gen
+
+# Used to accelerate CI builds
+.depshash
+.depshash-target

@@ -1,21 +1,25 @@
 (function () {
-  const { setImmediate } = require('timers')
-  const { ipcRenderer } = require('electron')
-  window.ipcRenderer = ipcRenderer
-  window.setImmediate = setImmediate
-  window.require = require
+  const { setImmediate } = require('timers');
+  const { ipcRenderer } = require('electron');
+  window.ipcRenderer = ipcRenderer;
+  window.setImmediate = setImmediate;
+  window.require = require;
 
   function invoke (code) {
     try {
-      return code()
+      return code();
     } catch {
-      return null
+      return null;
     }
   }
 
+  process.once('loaded', () => {
+    ipcRenderer.send('process-loaded');
+  });
+
   if (location.protocol === 'file:') {
-    window.test = 'preload'
-    window.process = process
+    window.test = 'preload';
+    window.process = process;
     if (process.env.sandboxmain) {
       window.test = {
         osSandbox: !process.argv.includes('--no-sandbox'),
@@ -23,7 +27,8 @@
         hasHang: typeof process.hang === 'function',
         creationTime: invoke(() => process.getCreationTime()),
         heapStatistics: invoke(() => process.getHeapStatistics()),
-        processMemoryInfo: invoke(() => process.getProcessMemoryInfo()),
+        blinkMemoryInfo: invoke(() => process.getBlinkMemoryInfo()),
+        processMemoryInfo: invoke(() => process.getProcessMemoryInfo() ? {} : null),
         systemMemoryInfo: invoke(() => process.getSystemMemoryInfo()),
         systemVersion: invoke(() => process.getSystemVersion()),
         cpuUsage: invoke(() => process.getCPUUsage()),
@@ -37,20 +42,20 @@
         type: process.type,
         version: process.version,
         versions: process.versions
-      }
+      };
     }
   } else if (location.href !== 'about:blank') {
     addEventListener('DOMContentLoaded', () => {
       ipcRenderer.on('touch-the-opener', () => {
-        let errorMessage = null
+        let errorMessage = null;
         try {
-          const openerDoc = opener.document // eslint-disable-line no-unused-vars
+          const openerDoc = opener.document; // eslint-disable-line no-unused-vars
         } catch (error) {
-          errorMessage = error.message
+          errorMessage = error.message;
         }
-        ipcRenderer.send('answer', errorMessage)
-      })
-      ipcRenderer.send('child-loaded', window.opener == null, document.body.innerHTML, location.href)
-    })
+        ipcRenderer.send('answer', errorMessage);
+      });
+      ipcRenderer.send('child-loaded', window.opener == null, document.body.innerHTML, location.href);
+    });
   }
-})()
+})();
